@@ -34,7 +34,7 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/upload_videos` | POST | Upload videos |
+| `/upload` | POST | Upload videos |
 | `/upload_photos` | POST | Upload photos/carousels |
 | `/upload_text` | POST | Text-only posts |
 | `/upload_document` | POST | Upload documents (LinkedIn only) |
@@ -54,7 +54,7 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 ## Upload Videos
 
 ```bash
-curl -X POST "https://api.upload-post.com/api/upload_videos" \
+curl -X POST "https://api.upload-post.com/api/upload" \
   -H "Authorization: Apikey YOUR_KEY" \
   -F "user=profile_name" \
   -F "platform[]=instagram" \

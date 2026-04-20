@@ -49,7 +49,7 @@ The skill provides comprehensive API documentation in `SKILL.md`. Your AI agent 
 
 ```bash
 # Upload a video
-curl -X POST "https://api.upload-post.com/api/upload_videos" \
+curl -X POST "https://api.upload-post.com/api/upload" \
   -H "Authorization: Apikey YOUR_KEY" \
   -F "user=profile_name" \
   -F "platform[]=instagram" \
