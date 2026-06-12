@@ -72,6 +72,7 @@ Key parameters:
 - `scheduled_date`: ISO-8601 date for scheduling
 - `timezone`: IANA timezone (e.g., "Europe/Madrid")
 - `async_upload`: Set `true` for background processing
+- `autogenerate`: Set `true` so the server AI-generates native per-platform title/description from the media and fills blank fields (also `autogenerate_title`/`autogenerate_description`/`autogenerate_language`)
 - `first_comment`: Auto-post first comment
 
 ## Upload Photos
