@@ -1,6 +1,6 @@
 ---
 name: upload-post
-description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, or Bluesky. Supports scheduling, analytics, FFmpeg processing, and upload history."
+description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, Bluesky, Slack, Mastodon, Nostr, Lemmy, Dev.to, Hashnode, WordPress, Whop, or Listmonk. Supports scheduling, analytics, FFmpeg processing, and upload history."
 ---
 
 # Upload-Post API
@@ -102,7 +102,7 @@ curl -X POST "https://api.upload-post.com/api/upload_text" \
   }'
 ```
 
-Supported: X, LinkedIn, Facebook, Threads, Reddit, Bluesky.
+Supported: X, LinkedIn, Facebook, Threads, Reddit, Bluesky, Slack, Mastodon, Nostr, Lemmy, Dev.to, Hashnode, WordPress, Whop, Listmonk.
 
 ## Upload Document (LinkedIn only)
 
@@ -139,6 +139,15 @@ Parameters:
 | Pinterest | ✓ | ✓ | - | - |
 | Reddit | - | ✓ | ✓ | - |
 | Bluesky | ✓ | ✓ | ✓ | - |
+| Slack | - | - | ✓ | - |
+| Mastodon | ✓ | ✓ | ✓ | - |
+| Nostr | - | - | ✓ | - |
+| Lemmy | - | ✓ | ✓ | - |
+| Dev.to | - | - | ✓ | - |
+| Hashnode | - | - | ✓ | - |
+| WordPress | ✓ | ✓ | ✓ | - |
+| Whop | - | - | ✓ | - |
+| Listmonk | - | - | ✓ | - |
 
 ## Upload History
 

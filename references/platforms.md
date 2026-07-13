@@ -107,6 +107,78 @@ Get board IDs: `GET /api/uploadposts/pinterest/boards`
 
 Limits: 4 images max, 1MB per image, 50 uploads/day.
 
+## Slack
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `slack_title` | String | Override title for Slack |
+
+Text-only (posts via incoming webhook).
+
+## Mastodon
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `mastodon_title` | String | Override title for Mastodon |
+
+Supports text, photos, and videos. Posts to the connected instance.
+
+## Nostr
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `nostr_title` | String | Override title for Nostr |
+
+Text-only (note published to the connected relays).
+
+## Lemmy
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `lemmy_title` | String | Override title for Lemmy |
+
+Supports text and photos. Posts to the connected community.
+
+## Dev.to
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `devto_title` | String | Override title for Dev.to |
+
+Text-only (article body as Markdown).
+
+## Hashnode
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `hashnode_title` | String | Override title for Hashnode |
+
+Text-only (article published to the connected publication).
+
+## WordPress
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `wordpress_title` | String | Override title for WordPress |
+
+Supports text, photos, and videos. Publishes to the connected site.
+
+## Whop
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `whop_title` | String | Override title for Whop |
+
+Text-only (posts to the connected experience).
+
+## Listmonk
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `listmonk_title` | String | Override title for Listmonk |
+
+Text-only (campaign sent to the connected list).
+
 ## Common Parameters (All Platforms)
 
 | Parameter | Type | Description |

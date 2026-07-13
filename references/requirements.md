@@ -48,6 +48,21 @@
 - Max 4 images per post
 - Daily limit: 50 uploads (photos + videos)
 
+### Mastodon
+- Formats: JPEG, PNG, GIF, WebP
+- Max size: 16MB (instance default, may vary)
+- Note: limits are set per instance and can differ from the defaults
+
+### Lemmy
+- Formats: JPEG, PNG, GIF, WebP
+- Max size: instance-dependent (pict-rs, commonly ~10MB)
+- Note: images are hosted by the instance; video is supported only via external link
+
+### WordPress
+- Formats: JPEG, PNG, GIF, WebP
+- Uploaded to the Media Library via REST `/wp/v2/media`
+- Max size: server-dependent (`upload_max_filesize`, commonly 8-64MB)
+
 ## Video Requirements
 
 ### TikTok
@@ -104,6 +119,17 @@
 - Max size: 50MB
 - Max duration: 60s
 - Daily limit: 50 uploads
+
+### Mastodon
+- Formats: MP4, MOV, WebM
+- Max size: 99MB (instance default, may vary)
+- Codec: H.264 recommended
+- Note: limits are set per instance and can differ from the defaults
+
+### WordPress
+- Formats: MP4, MOV, WebM
+- Uploaded to the Media Library via REST `/wp/v2/media`
+- Max size: server-dependent (`upload_max_filesize`)
 
 ## Document Requirements (LinkedIn only)
 
