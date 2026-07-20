@@ -113,6 +113,5 @@ Limits: 4 images max, 1MB per image, 50 uploads/day.
 |-----------|------|-------------|
 | `first_comment` | String | Auto-post first comment (Instagram, Facebook, Threads, Bluesky, Reddit, X, YouTube) |
 | `async_upload` | Boolean | Background processing |
-| `autogenerate` | Boolean | AI generates native per-platform title/description from the media and fills blank fields (`autogenerate_title`/`autogenerate_description`/`autogenerate_language` for granularity) |
 | `scheduled_date` | String | ISO-8601 schedule time |
 | `timezone` | String | IANA timezone for schedule |
