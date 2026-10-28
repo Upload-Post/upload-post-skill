@@ -49,7 +49,9 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/uploadposts/linkedin/pages` | GET | List LinkedIn pages |
 | `/uploadposts/pinterest/boards` | GET | List Pinterest boards |
 | `/uploadposts/reddit/detailed-posts` | GET | Get Reddit posts with media |
-| `/ffmpeg` | POST | Process media with FFmpeg |
+| `/uploadposts/ffmpeg/jobs/upload` | POST | Start an FFmpeg job |
+| `/uploadposts/ffmpeg/jobs/<job_id>` | GET | FFmpeg job status |
+| `/uploadposts/ffmpeg/jobs/<job_id>/download` | GET | Download FFmpeg output |
 
 ## Upload Videos
 
@@ -222,7 +224,7 @@ Returns up to 2000 posts with media URLs, dimensions, thumbnails.
 Process media with custom FFmpeg commands:
 
 ```bash
-curl -X POST "https://api.upload-post.com/api/ffmpeg" \
+curl -X POST "https://api.upload-post.com/api/uploadposts/ffmpeg/jobs/upload" \
   -H "Authorization: Apikey YOUR_KEY" \
   -F "file=@input.mp4" \
   -F "full_command=ffmpeg -y -i {input} -c:v libx264 -crf 23 {output}" \
@@ -230,9 +232,10 @@ curl -X POST "https://api.upload-post.com/api/ffmpeg" \
 ```
 
 - Use `{input}` and `{output}` placeholders
-- Poll job status until `FINISHED`
-- Download result from `/ffmpeg/job/<job_id>/download`
-- Supports multiple inputs: `{input0}`, `{input1}`, etc.
+- Poll `GET /api/uploadposts/ffmpeg/jobs/<job_id>` until `FINISHED` (or `ERROR`)
+- Download result from `GET /api/uploadposts/ffmpeg/jobs/<job_id>/download`
+- Supports multiple inputs: upload `file`, `file1`, `file2`... and reference them as `{input0}`, `{input1}`, etc.
+- Rules (400 otherwise): every `-i` must be `{input}`/`{inputN}` or a `-f lavfi` source; no URLs or protocols (`http://`, `concat:`, `file:`...) inside the command; endless inputs (`-stream_loop -1`, `-loop 1`, lavfi without duration) need `-t`/`-shortest`/`-frames`.
 
 Quotas: Free 30min/mo, Basic 300min, Pro 1000min, Advanced 3000min, Business 10000min.
 
