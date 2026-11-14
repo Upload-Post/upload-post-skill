@@ -1,6 +1,6 @@
 ---
 name: upload-post
-description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, or Bluesky. Supports scheduling, analytics, FFmpeg processing, and upload history."
+description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, or Bluesky. Supports scheduling, analytics, FFmpeg processing, upload history, comments and replies, Instagram and Bluesky DMs, account-wide Instagram AutoDM rules, webhooks with a delivery log, and LinkedIn mentions."
 ---
 
 # Upload-Post API
@@ -47,7 +47,18 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/analytics/<profile>` | GET | Get analytics |
 | `/uploadposts/facebook/pages` | GET | List Facebook pages |
 | `/uploadposts/linkedin/pages` | GET | List LinkedIn pages |
+| `/uploadposts/linkedin/resolve-organization` | GET | Resolve any LinkedIn company Page to `{urn, name}` for mentions |
 | `/uploadposts/pinterest/boards` | GET | List Pinterest boards |
+| `/uploadposts/post-analytics/<request_id>` | GET | Per-post metrics of an upload |
+| `/uploadposts/comments` | GET | List comments of a post, or the replies under one comment |
+| `/uploadposts/dms/send` | POST | Send an Instagram or Bluesky DM (or a sender action) |
+| `/uploadposts/dms/conversations` | GET | List Instagram or Bluesky DM conversations |
+| `/uploadposts/autodms/rules` | GET / POST | List / create account-wide Instagram AutoDM rules |
+| `/uploadposts/autodms/rules/pause` · `resume` · `delete` | POST | Manage a rule (`{"rule_id": ...}`) |
+| `/uploadposts/users/notifications` | GET / POST | Webhook URL and events |
+| `/uploadposts/webhooks/deliveries` | GET | Webhook delivery log (7 days) |
+| `/uploadposts/webhooks/deliveries/<delivery_id>` | GET | One delivery, with its payload |
+| `/uploadposts/webhooks/deliveries/<delivery_id>/redeliver` | POST | Send a delivery again |
 | `/uploadposts/reddit/detailed-posts` | GET | Get Reddit posts with media |
 | `/uploadposts/ffmpeg/jobs/upload` | POST | Start an FFmpeg job |
 | `/uploadposts/ffmpeg/jobs/<job_id>` | GET | FFmpeg job status |
@@ -90,6 +101,8 @@ curl -X POST "https://api.upload-post.com/api/upload_photos" \
 
 Instagram & Threads support mixed carousels (photos + videos in same post).
 
+Bluesky takes 4 images per post (extra ones are dropped with a `warnings` entry). Send `bluesky_gallery=true` to publish up to **10** images as a gallery; with more than 10 the first 10 are published and `warnings` says so.
+
 ## Upload Text
 
 ```bash
@@ -104,6 +117,27 @@ curl -X POST "https://api.upload-post.com/api/upload_text" \
 ```
 
 Supported: X, LinkedIn, Facebook, Threads, Reddit, Bluesky.
+
+### LinkedIn mentions
+
+Write mentions in the LinkedIn post text (`linkedin_title`/`title` for text posts, `linkedin_description`/`description` for photos and videos):
+
+- `@[Exact Page Name](urn:li:organization:ID)`: a company, showcase or school Page. The name must match the Page's name on LinkedIn **exactly, capitals included**, or LinkedIn publishes it as plain text.
+- `@[Name](urn:li:person:ID)`: a person. Only person ids Upload-Post itself sees work (a member who connected their LinkedIn, or the `author` of a comment from `/uploadposts/comments`); LinkedIn does not let apps look people up.
+- `@company-vanity`: Upload-Post looks the Page up and fills in its exact name.
+
+Write plain text (no backslashes): reserved characters are escaped for you. To get the URN and exact name of any Page from its URL:
+
+```bash
+curl -G "https://api.upload-post.com/api/uploadposts/linkedin/resolve-organization" \
+  -H "Authorization: Apikey YOUR_KEY" \
+  --data-urlencode "user=profile_name" \
+  --data-urlencode "url=https://www.linkedin.com/company/linkedin/"
+# {"success": true, "urn": "urn:li:organization:1337", "id": "1337", "name": "LinkedIn",
+#  "vanity_name": "linkedin", "mention": "@[LinkedIn](urn:li:organization:1337)", "cached": false}
+```
+
+`url` also takes the vanity (`linkedin` or `@linkedin`), the numeric id or `urn:li:organization:ID`. Paste `mention` into the post as is. Cached Pages are free; live lookups count against 60 per hour per account. Errors: `400 linkedin_person_not_resolvable` (a `/in/` profile), `403 linkedin_permission_missing` (reconnect LinkedIn approving the Page permissions), `404 organization_not_found`, `429 rate_limited`.
 
 ## Upload Document (LinkedIn only)
 
@@ -192,6 +226,8 @@ Supported: Instagram, TikTok, LinkedIn, Facebook, X, YouTube, Threads, Pinterest
 
 Returns: followers, impressions, reach, profile views, time-series data.
 
+Per-post metrics of an upload: `GET /api/uploadposts/post-analytics/<request_id>?platform=tiktok`. A TikTok draft (`post_mode=MEDIA_UPLOAD`) has metrics only after the creator publishes it as **public** from the TikTok app; until then `post_metrics_error` says it is still in the inbox. After 30 days without a post Upload-Post stops asking TikTok; read a published one with `GET /api/uploadposts/post-analytics?platform_post_id=<id>&platform=tiktok&user=<profile>`. TikTok rows carry `original_publish_id`, and `post_url` is empty when the account's @username is unknown.
+
 ## Get Pages/Boards
 
 ```bash
@@ -239,6 +275,83 @@ curl -X POST "https://api.upload-post.com/api/uploadposts/ffmpeg/jobs/upload" \
 
 Quotas: Free 30min/mo, Basic 300min, Pro 1000min, Advanced 3000min, Business 10000min.
 
+## Comments and Replies
+
+```bash
+# Top-level comments of a post
+curl "https://api.upload-post.com/api/uploadposts/comments?platform=instagram&user=profile_name&post_id=17890455123456789" \
+  -H "Authorization: Apikey YOUR_KEY"
+
+# Replies under one comment: same call plus comment_id
+curl "https://api.upload-post.com/api/uploadposts/comments?platform=instagram&user=profile_name&post_id=17890455123456789&comment_id=17858893269123456&limit=25" \
+  -H "Authorization: Apikey YOUR_KEY"
+```
+
+- `comment_id` (replies) works on Instagram, Facebook, LinkedIn (company Pages only), TikTok, Threads and YouTube. X and Bluesky answer `400 platform_not_supported`. `post_id` is always required.
+- Instagram: numeric comment id. Facebook: the `{post}_{comment}` id; `post_id` in `{page_id}_{post_id}` form picks the Page. LinkedIn: pass the `comment_urn` from the listing (`urn:li:comment:(urn:li:activity:…,…)`); a bare id is only searched among the post's first 250 comments.
+- Paginate with `after` = `pagination.next_cursor` (`cursor` is ignored here). `limit` 1-50; LinkedIn's top-level listing ignores it.
+- Errors: `400 invalid_comment_id`, `404 comment_not_found` (Instagram/Facebook), `404 linkedin_comment_not_found`, `403 linkedin_personal_not_supported` (personal profile), `403 linkedin_page_access_denied` (no longer Page admin: reconnect). A comment without replies is `200` with `comments: []`.
+- Reply with `POST /api/uploadposts/comments/create` (`platform`, `user`, `comment_id`, `message`, plus `post_id` where needed).
+
+## Direct Messages (Instagram, Bluesky)
+
+```bash
+curl -X POST "https://api.upload-post.com/api/uploadposts/dms/send" \
+  -H "Authorization: Apikey YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"platform": "bluesky", "user": "profile_name", "recipient_id": "alice.bsky.social", "message": "Thanks for the follow! https://example.com"}'
+
+curl "https://api.upload-post.com/api/uploadposts/dms/conversations?platform=bluesky&user=profile_name&messages_limit=1" \
+  -H "Authorization: Apikey YOUR_KEY"
+```
+
+- Instagram: `recipient_id` is the Instagram-scoped id (from conversations or the `dm_received` webhook); the person must have written in the last 24 hours. Optional `buttons` (3), `attachments`, `quick_replies`, `generic_template`, `reply_to`, `sender_action` (`typing_on`, `typing_off`, `mark_seen`, `react`, `unreact` with `message_id`).
+- Bluesky: needs an app password created with **"Allow access to your direct messages"** (Bluesky > Settings > Privacy and security > App passwords), else `403 bluesky_dm_scope_missing`: reconnect Bluesky with a new one. `recipient_id` is a handle, DID or profile link, or pass `conversation_id` (also for groups). Text up to 1,000 characters; links, `#hashtags` and up to 10 `@mentions` become clickable. Share a post with `attachments: {"type": "post", "url": "https://bsky.app/profile/<handle>/post/<id>"}` (no images or files). `reply_to`, and `sender_action`: `mark_seen`/`mark_read`, `react`/`unreact` (`message_id` + a single emoji in `reaction`), `delete` (for you), `accept`, `mute`, `unmute`, `leave`. Sender actions spend no DM quota.
+- Bluesky conversations: `participant_id` (handle/DID), `conversation_id` + `messages_cursor` (older messages), `status=request|accepted`, `read_state=unread`. At most 25 per page; slow pages mark the rest `messages_truncated: true`. Messages carry `direction` (`in`/`out`), `reactions`, `reply_to`.
+- Bluesky errors: `403 bluesky_recipient_unavailable` (`reason`; no quota spent), `404 bluesky_recipient_not_found` / `bluesky_conversation_not_found`, `400 bluesky_message_too_long`, `401 bluesky_reauth_required`, `429 bluesky_rate_limited`, `503 bluesky_edge_rate_limited` (`Retry-After`). **`504 bluesky_send_unconfirmed` (`retryable: false`): the DM may have gone out, read the conversation before sending again and never retry it automatically.**
+
+## AutoDM: Account-Wide Instagram Rules
+
+One rule answers with a DM every comment on any post or reel of the Instagram account (present and future), plus story replies, story mentions and DMs with a keyword. Rules never expire, do not count towards the 2 per-post monitors per profile per day, and run from Meta webhooks only.
+
+```bash
+curl -X POST "https://api.upload-post.com/api/uploadposts/autodms/rules" \
+  -H "Authorization: Apikey YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profile_username": "profile_name",
+    "triggers": ["comment", "story_reply", "story_mention"],
+    "trigger_keywords": ["guide"],
+    "reply_message": "Here is your free guide!",
+    "buttons": [{"title": "Get the guide", "url": "https://example.com/guide"}],
+    "per_user_cooldown_hours": 24
+  }'
+```
+
+- `triggers`: `comment` (default), `story_reply`, `story_mention`, `dm_keyword` (needs `trigger_keywords`). Keywords: up to 20, case- and accent-insensitive, not applied to `story_mention`; blank keywords are a `400`.
+- `reply_message`: max 1,000 characters (640 with `buttons`, up to 3). `per_user_cooldown_hours`: whole number 0-720 (default 24); message triggers never go below 24 h (`message_cooldown_hours`).
+- `GET /api/uploadposts/autodms/rules[?profile_username=]`: `status` (`active`, `paused`, `reconnect_required`, `stopped` + `stop_reason`, `disabled`), `stats`, `pending`, `webhook` (`receiving_events`, `last_event_at`, `last_event_age_hours`, `hint`).
+- `POST /api/uploadposts/autodms/rules/pause|resume|delete` with `{"rule_id": "rule_..."}`.
+- Limits: 10 rules per Instagram account; a post with its own monitor is answered by that monitor; 25 DMs per account every 15 minutes plus the plan's daily DM allowance; overflow is queued up to 24 h. Uncertain sends are never repeated (`stats.unknown_outcome`).
+- Errors: `502 webhook_subscription_failed` (reconnect Instagram), `409 duplicate_rule` / `rule_limit_reached` / `rule_creation_in_progress` / `rule_stopped`, `503 account_rules_disabled`.
+
+## Webhooks
+
+Configure with `POST /api/uploadposts/users/notifications`:
+
+```json
+{"channels": {"webhook": true}, "webhook_url": "https://example.com/hook",
+ "webhook_events": {"upload_completed": true, "dm_received": true, "comment_received": true}}
+```
+
+Events: `upload_completed`, `social_account_connected`, `social_account_disconnected`, `social_account_reauth_required`, `dm_received` (Instagram; Bluesky checked every 5 minutes), `comment_received`. Signed with HMAC-SHA256 (`X-Upload-Post-Signature`).
+
+- **At least once.** A timeout (15 s total), connection error, `5xx`, `408` or `429` is retried: 6 attempts over ~8.5 h (+1 min, +5 min, +30 min, +2 h, +6 h), same body and same `X-Upload-Post-Delivery` id (deduplicate by it); `X-Upload-Post-Attempt` is 1-6. Other `4xx` are final; `3xx` counts as delivered (redirects are not followed). No ordering guarantee.
+- After 5 consecutive failures the webhook pauses 30 min; events during the pause are queued, not lost. Pending after 24 h = `failed`.
+- `GET /api/uploadposts/webhooks/deliveries`: filters `event`, `status` (`pending`, `delivered`, `failed`, `cancelled`), `request_id`, `job_id`, `profile_username`; `limit` 1-100 (20), `page` 1-50, `include_payload=true`. Kept 7 days.
+- `GET /api/uploadposts/webhooks/deliveries/<delivery_id>`: one delivery with `attempts` and `payload`.
+- `POST /api/uploadposts/webhooks/deliveries/<delivery_id>/redeliver`: new delivery now, same body, current URL, header `X-Upload-Post-Redelivery-Of`. `404` unknown/expired, `409` (`webhook_removed`, `event_unsubscribed`, `blocked_url`).
+
 ## Platform-Specific Parameters
 
 See [references/platforms.md](references/platforms.md) for detailed platform parameters.
@@ -253,6 +366,7 @@ See [references/requirements.md](references/requirements.md) for format specs pe
 |------|---------|
 | 400 | Bad request / missing params |
 | 401 | Invalid API key |
+| 403 `TEAM_SEAT_SUSPENDED` | Team member acting with `X-Act-As-User` on an account whose plan no longer covers that seat. Access returns when the owner upgrades or frees a seat |
 | 404 | Resource not found |
 | 429 | Rate limit / quota exceeded |
 | 500 | Server error |
@@ -263,3 +377,6 @@ See [references/requirements.md](references/requirements.md) for format specs pe
 - X long text creates threads unless `x_long_text_as_post=true`
 - Facebook requires Page ID (personal profiles not supported by Meta)
 - Instagram/Threads support mixed carousels (photos + videos)
+- Instagram posts cannot be deleted through Upload-Post (Meta only allows it with Facebook Login; Upload-Post connects Instagram with Instagram Login). TikTok has no delete API either
+- X edits: Premium only, inside X's edit window (`edit_controls.editable_until` is the real deadline); the post ID changes
+- Instagram `media_url` is missing for videos with licensed audio: fall back to `permalink` or `thumbnail_url`

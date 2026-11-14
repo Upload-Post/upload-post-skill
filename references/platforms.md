@@ -44,6 +44,8 @@
 
 Get page IDs: `GET /api/uploadposts/linkedin/pages`
 
+Mentions in the post text: `@[Exact Page Name](urn:li:organization:ID)`, `@[Name](urn:li:person:ID)` or `@company-vanity`. A company name must match LinkedIn exactly, capitals included. Resolve any Page with `GET /api/uploadposts/linkedin/resolve-organization?user=<profile>&url=<Page URL|vanity|id>`.
+
 ## Facebook
 
 | Parameter | Type | Description |
@@ -104,8 +106,9 @@ Get board IDs: `GET /api/uploadposts/pinterest/boards`
 |-----------|------|-------------|
 | `bluesky_title` | String | Override title |
 | `alt_text` | String | Alt text for images |
+| `bluesky_gallery` | Boolean | Publish up to 10 images as a gallery (`app.bsky.embed.gallery`) |
 
-Limits: 4 images max, 1MB per image, 50 uploads/day.
+Limits: 4 images per post (10 with `bluesky_gallery=true`; extra images are dropped with a warning), 1MB per image, 50 uploads/day.
 
 ## Common Parameters (All Platforms)
 
