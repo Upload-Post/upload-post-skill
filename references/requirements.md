@@ -45,7 +45,7 @@
 ### Bluesky
 - Formats: JPEG, PNG, GIF, WebP
 - Max size: 1MB per image
-- Max 4 images per post
+- Max 4 images per post (up to 10 with `bluesky_gallery=true`)
 - Daily limit: 50 uploads (photos + videos)
 
 ## Video Requirements

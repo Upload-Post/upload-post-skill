@@ -23,8 +23,13 @@ A skill for AI agents (Claude Code, Clawdbot, etc.) to upload content to social 
 - Schedule posts for later
 - Cross-post to multiple platforms simultaneously
 - FFmpeg media processing (resize, transcode, etc.)
-- Analytics retrieval
+- Analytics retrieval (including TikTok drafts once published)
 - Upload history tracking
+- Comments and replies (Instagram, Facebook, LinkedIn, TikTok, Threads, YouTube)
+- Instagram and Bluesky direct messages
+- Account-wide Instagram AutoDM rules (every post, story replies, story mentions, keyword DMs)
+- Webhooks with automatic retries, a 7-day delivery log and redelivery
+- LinkedIn mentions and company Page lookup
 
 ## Installation
 
