@@ -16,6 +16,8 @@ A skill for AI agents (Claude Code, Clawdbot, etc.) to upload content to social 
 | Pinterest | ✓ | ✓ | - | - |
 | Reddit | - | ✓ | ✓ | - |
 | Bluesky | ✓ | ✓ | ✓ | - |
+| Telegram | ✓ | ✓ | ✓ | ✓ |
+| Google Business | ✓ | ✓ | ✓ | - |
 
 ## Features
 
@@ -30,6 +32,12 @@ A skill for AI agents (Claude Code, Clawdbot, etc.) to upload content to social 
 - Account-wide Instagram AutoDM rules (every post, story replies, story mentions, keyword DMs)
 - Webhooks with automatic retries, a 7-day delivery log and redelivery
 - LinkedIn mentions and company Page lookup
+- Best time to post per network, and a queue that fills itself with those hours (`slots: "auto"`)
+- Paid partnership labels (TikTok, YouTube, X, Facebook, Pinterest)
+- Edit, repost / forward and delete live posts
+- Telegram: polls, locations, buttons, pins, any file; chat, members, invite links, bot profile and commands
+- Bluesky: profiles, search, notifications, drafts
+- Google Business: recurring posts, posts, reviews, performance, location info
 
 ## Installation
 

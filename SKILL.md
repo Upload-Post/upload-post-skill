@@ -1,6 +1,6 @@
 ---
 name: upload-post
-description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, or Bluesky. Supports scheduling, analytics, FFmpeg processing, upload history, comments and replies, Instagram and Bluesky DMs, account-wide Instagram AutoDM rules, webhooks with a delivery log, and LinkedIn mentions."
+description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, Bluesky, Telegram, or Google Business. Supports scheduling, a queue that can fill itself with the best times to post, paid partnership labels, editing/reposting/deleting live posts, analytics, FFmpeg processing, upload history, comments and replies, Instagram and Bluesky DMs, account-wide Instagram AutoDM rules, webhooks with a delivery log, LinkedIn mentions, Telegram chat and bot management, Bluesky reads and drafts, and Google Business posts, reviews, performance and location info."
 ---
 
 # Upload-Post API
@@ -37,7 +37,7 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/upload` | POST | Upload videos |
 | `/upload_photos` | POST | Upload photos/carousels |
 | `/upload_text` | POST | Text-only posts |
-| `/upload_document` | POST | Upload documents (LinkedIn only) |
+| `/upload_document` | POST | Upload documents (LinkedIn) or any file (Telegram) |
 | `/uploadposts/status?request_id=X` | GET | Check async upload status |
 | `/uploadposts/history` | GET | Upload history |
 | `/uploadposts/schedule` | GET | List scheduled posts |
@@ -63,6 +63,15 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/uploadposts/ffmpeg/jobs/upload` | POST | Start an FFmpeg job |
 | `/uploadposts/ffmpeg/jobs/<job_id>` | GET | FFmpeg job status |
 | `/uploadposts/ffmpeg/jobs/<job_id>/download` | GET | Download FFmpeg output |
+| `/uploadposts/best-times?profile_username=&platform=` | GET | Best hours to post for a connected account |
+| `/uploadposts/queue/settings` | GET / POST | Queue settings (`slots: "auto"` = best times) |
+| `/uploadposts/queue/preview` · `/queue/next-slot` | GET | Upcoming slots / next free slot |
+| `/uploadposts/posts/edit` | POST | Edit a live post (Facebook, LinkedIn, X, YouTube, Google Business, Telegram) |
+| `/uploadposts/posts/repost` | POST | Repost (LinkedIn, X, Threads) or forward/copy (Telegram) |
+| `/uploadposts/posts/unpublish` | POST | Delete a live post |
+| `/uploadposts/telegram/*` | GET / POST / PATCH / DELETE | Telegram chat, members, invite links, topics, bot profile and commands |
+| `/uploadposts/bluesky/*` | GET / POST | Bluesky profiles, search, notifications, profile/settings, drafts |
+| `/uploadposts/google-business/*` | GET / PATCH | Google Business posts, reviews, gallery, performance, location info |
 
 ## Upload Videos
 
@@ -116,7 +125,11 @@ curl -X POST "https://api.upload-post.com/api/upload_text" \
   }'
 ```
 
-Supported: X, LinkedIn, Facebook, Threads, Reddit, Bluesky.
+Supported: X, LinkedIn, Facebook, Threads, Reddit, Bluesky, Telegram, Google Business.
+
+### Paid partnership
+
+`paid_partnership=true` (on `/upload`, `/upload_photos`, `/upload_text`) marks a sponsored post with each network's native label: TikTok `brand_content_toggle`, YouTube `hasPaidProductPlacement`, X `paid_partnership`. Facebook also needs `facebook_sponsor_id` (sponsor's Page id; not on Reels/Stories) and Pinterest `pinterest_sponsor_id` (closed beta). Other networks publish without it and `warnings` says so; a network-specific field always wins. TikTok: with `privacy_level=SELF_ONLY` the request is refused (`400 commercial_disclosure_privacy_conflict`), and drafts do not carry it. Guide: https://docs.upload-post.com/guides/paid-partnership
 
 ### LinkedIn mentions
 
@@ -139,9 +152,9 @@ curl -G "https://api.upload-post.com/api/uploadposts/linkedin/resolve-organizati
 
 `url` also takes the vanity (`linkedin` or `@linkedin`), the numeric id or `urn:li:organization:ID`. Paste `mention` into the post as is. Cached Pages are free; live lookups count against 60 per hour per account. Errors: `400 linkedin_person_not_resolvable` (a `/in/` profile), `403 linkedin_permission_missing` (reconnect LinkedIn approving the Page permissions), `404 organization_not_found`, `429 rate_limited`.
 
-## Upload Document (LinkedIn only)
+## Upload Document (LinkedIn, Telegram)
 
-Upload PDFs, PPTs, DOCs as native LinkedIn document posts (carousel viewer).
+Upload PDFs, PPTs, DOCs as native LinkedIn document posts (carousel viewer). Telegram accepts **any file up to 50 MB** here; `telegram_send_as` = `document` (default), `audio`, `voice`, `animation`, `sticker`, `video_note`, `video` or `photo`.
 
 ```bash
 curl -X POST "https://api.upload-post.com/api/upload_document" \
@@ -174,6 +187,8 @@ Parameters:
 | Pinterest | ✓ | ✓ | - | - |
 | Reddit | - | ✓ | ✓ | - |
 | Bluesky | ✓ | ✓ | ✓ | - |
+| Telegram | ✓ | ✓ | ✓ | ✓ |
+| Google Business | ✓ | ✓ | ✓ | - |
 
 ## Upload History
 
@@ -204,6 +219,29 @@ Response includes `job_id`. Manage with:
 - `DELETE /uploadposts/schedule/<job_id>` - Cancel
 - `PATCH /uploadposts/schedule/<job_id>` - Edit (date, title, caption)
 
+## Best Time to Post and the Automatic Queue
+
+```bash
+curl "https://api.upload-post.com/api/uploadposts/best-times?profile_username=profile_name&platform=instagram&timezone=Europe/Madrid" \
+  -H "Authorization: Apikey YOUR_KEY"
+```
+
+- Platforms: TikTok, Instagram, Facebook, YouTube, LinkedIn, Threads, Pinterest, Bluesky. Optional `top` (1-24, default 5), `refresh=true` (only if the cached answer is 24 h old; YouTube 7 days), `page_urn` (LinkedIn Page), `facebook_page_id`.
+- Answer: `best_times` (best first, in `timezone`), `by_hour`, `by_day`, `source` (`audience_activity`, `account_posts`, `upload_post_history`, `none`), `confidence`, `warnings`.
+- Let the queue use them: `POST /api/uploadposts/queue/settings` with `{"profile_username": "profile_name", "timezone": "Europe/Madrid", "slots": "auto", "auto_slots_count": 3, "auto_platforms": ["instagram", "tiktok"]}`. Then upload with `add_to_queue=true`. Posts already scheduled do not move; a `slots` array switches back to fixed slots. `GET /queue/settings` shows `slots_mode`, `auto_slots`, `effective_slots`; `GET /queue/preview?count=` and `GET /queue/next-slot` show what is coming.
+
+## Edit, Repost and Delete Live Posts
+
+```bash
+curl -X POST "https://api.upload-post.com/api/uploadposts/posts/edit" \
+  -H "Authorization: Apikey YOUR_KEY" -H "Content-Type: application/json" \
+  -d '{"platform": "telegram", "user": "profile_name", "post_id": "812", "text": "Fixed text"}'
+```
+
+- Edit: Facebook `message`, LinkedIn `commentary`, X `text` (Premium, edit window), YouTube `title`/`description`/`tags`/`privacyStatus`/`hasPaidProductPlacement`, Google Business `summary`/`cta_type`/`cta_url`/`event_*`/`offer_*` (`post_id` = `accounts/…/locations/…/localPosts/…`), Telegram `text`/`caption`, `telegram_reply_markup`, `action` = `pin`/`unpin`/`stop_poll`/`edit_live_location`/`stop_live_location`, `telegram_media` (replace the media; send `caption` or `telegram_remove_caption`).
+- Repost: LinkedIn (`commentary`), X, Threads; Telegram forwards or copies with `mode` (`forward`/`copy`), `target_chat_id` or `target_user` (another profile), `post_ids` (1-100) or `all_messages`, and for a copy `caption`.
+- Unpublish (`platform`, `user`, `post_id`): not Instagram, TikTok or Threads. Telegram: `delete_all_messages=true` deletes every message of the post (album, caption rest, first comment); bots can delete for 48 h.
+
 ## Check Upload Status
 
 For async uploads or scheduled posts:
@@ -222,7 +260,9 @@ curl "https://api.upload-post.com/api/analytics/profile_name?platforms=instagram
   -H "Authorization: Apikey YOUR_KEY"
 ```
 
-Supported: Instagram, TikTok, LinkedIn, Facebook, X, YouTube, Threads, Pinterest, Reddit, Bluesky.
+Supported: Instagram, TikTok, LinkedIn, Facebook, X, YouTube, Threads, Pinterest, Reddit, Bluesky, Telegram, Google Business.
+
+Telegram returns `followers` (subscribers or members), reactions as `engagement`/`likes` and `boosts_active` (the Bot API has no views). Google Business daily metrics for any range: `GET /api/uploadposts/google-business/performance?user=&location_id=&metrics=&start_date=&end_date=`, search keywords: `/google-business/performance/keywords?start_month=&end_month=`.
 
 Returns: followers, impressions, reach, profile views, time-series data.
 
@@ -335,6 +375,25 @@ curl -X POST "https://api.upload-post.com/api/uploadposts/autodms/rules" \
 - Limits: 10 rules per Instagram account; a post with its own monitor is answered by that monitor; 25 DMs per account every 15 minutes plus the plan's daily DM allowance; overflow is queued up to 24 h. Uncertain sends are never repeated (`stats.unknown_outcome`).
 - Errors: `502 webhook_subscription_failed` (reconnect Instagram), `409 duplicate_rule` / `rule_limit_reached` / `rule_creation_in_progress` / `rule_stopped`, `503 account_rules_disabled`.
 
+## Telegram (your own bot)
+
+Publishing options (all optional, Bot API names with a `telegram_` prefix, JSON options as the official object): `telegram_title`, `telegram_parse_mode`, `telegram_reply_markup` (URL buttons), `telegram_pin` / `telegram_pin_notify`, `telegram_reply_to_message_id`, `telegram_message_thread_id`, `telegram_disable_notification`, `telegram_protect_content`, `telegram_first_comment_as_reply` (default true). Text posts: one of `telegram_poll`, `telegram_location`, `telegram_venue`, `telegram_contact`, `telegram_dice`, or `telegram_rich_message`. Media: `telegram_send_as` (`animation`, `video_note`, `live_photo`, `document`), `telegram_media_urls` (album), `telegram_caption_overflow=split`, `telegram_paid_star_count` (paid media, Stars go to your channel/bot). An invalid option fails only the Telegram result (`telegram_invalid_parameter`). Reference: https://docs.upload-post.com/api/telegram
+
+Management (`user` = profile; the bot needs the matching admin right): `GET|PATCH /uploadposts/telegram/chat-info`, `GET /telegram/boosts`, `GET|POST /telegram/members` (`action`: `ban`, `unban`, `restrict`, `promote`, `demote`, `set_title`), `POST|PATCH|DELETE /telegram/invite-links`, `POST /telegram/join-requests`, `POST|PATCH|DELETE /telegram/topics`, `GET|PATCH /telegram/bot-profile`, `GET|POST|DELETE /telegram/bot-commands`, `GET /telegram/stars`. Destructive calls need `"confirm": true`. DMs: `POST /uploadposts/dms/send` with `platform=telegram` and the person's numeric `recipient_id` (only people who started the bot).
+
+## Bluesky Reads and Drafts
+
+- Publishing extras: `bluesky_tags` (up to 8 hidden hashtags), `bluesky_created_at` (import older posts), `bluesky_thread_overflow=true` (long text continues as replies), `bluesky_gif_as_video`, video `bluesky_captions` (WebVTT) and `bluesky_video_presentation=gif`.
+- Reads: `GET /uploadposts/bluesky/profile?actor=` (up to 25; empty = connected account), `/bluesky/search/posts?user=&q=` (needs `user`), `/bluesky/search/actors?q=`, `/bluesky/followers`, `/bluesky/follows`, `/uploadposts/post-engagement?platform=bluesky&post_id=&type=likes|reposts|quotes`, `/bluesky/notifications?user=&reasons=`, `/bluesky/notifications/unread-count`, read-only gateway `/bluesky/xrpc/<nsid>` (allow-listed public methods).
+- Account: `GET|POST /bluesky/profile/self`, `/bluesky/settings`, `/bluesky/preferences`, post actions `POST /uploadposts/posts/action` (`bookmark`, `pin`, reply/quote settings). Drafts: `GET|POST /bluesky/drafts`, `PATCH|DELETE /bluesky/drafts/<id>` (text only; delete needs `confirm`).
+
+## Google Business
+
+- Publishing extras: `gbp_alert_type`, `gbp_upload_to_gallery`, `gbp_multi_media=true` (up to 10 photos), recurring EVENT/OFFER posts (`gbp_recurrence` + `_days`/`_day_of_month`/`_week_occurrence`/`_end`), `gbp_scheduled_time` (Google's own scheduling).
+- Posts: `GET /uploadposts/google-business/posts?user=&location_id=`, `/posts/get?post_id=`; edit with `/posts/edit`, delete with `/posts/unpublish`.
+- Reviews: `GET /google-business/reviews` (`order_by`), `/reviews/get?review_name=`, `/reviews/batch?location_ids=`; reply `PUT /reviews/reply`.
+- Location: `GET /google-business/location-info`, `PATCH /location-info` with `edit_mode` `legacy` (default) or `strict` (title, address, categories, open status; `dry_run`, `confirm`), plus gallery (`/media`), attributes, Place Actions, menus/services, lodging. `location_id` is optional (default: the location selected for the profile).
+
 ## Webhooks
 
 Configure with `POST /api/uploadposts/users/notifications`:
@@ -380,3 +439,4 @@ See [references/requirements.md](references/requirements.md) for format specs pe
 - Instagram posts cannot be deleted through Upload-Post (Meta only allows it with Facebook Login; Upload-Post connects Instagram with Instagram Login). TikTok has no delete API either
 - X edits: Premium only, inside X's edit window (`edit_controls.editable_until` is the real deadline); the post ID changes
 - Instagram `media_url` is missing for videos with licensed audio: fall back to `permalink` or `thumbnail_url`
+- Telegram bots can delete messages for 48 h; Telegram has no views or channel statistics in the Bot API
