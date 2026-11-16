@@ -33,6 +33,8 @@
 | `tags` | Array | Video tags |
 | `made_for_kids` | Boolean | COPPA compliance |
 | `playlist_id` | String | Add to playlist |
+| `youtube_localizations` | JSON | Translated title/description per language, e.g. `{"es": {"title": "…", "description": "…"}}`; needs `defaultLanguage` |
+| `youtube_brand_partner` | String | Brand partner channel ID (`UC…`) for creator-initiated brand partner access |
 
 ## LinkedIn
 

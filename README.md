@@ -38,6 +38,7 @@ A skill for AI agents (Claude Code, Clawdbot, etc.) to upload content to social 
 - Telegram: polls, locations, buttons, pins, any file; chat, members, invite links, bot profile and commands
 - Bluesky: profiles, search, notifications, drafts
 - Google Business: recurring posts, posts, reviews, performance, location info
+- YouTube: playlists, captions, comment inbox and moderation, channel settings, search, live broadcasts and chat, daily allowance
 
 ## Installation
 
