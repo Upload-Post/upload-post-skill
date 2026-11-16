@@ -49,7 +49,11 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/uploadposts/linkedin/pages` | GET | List LinkedIn pages |
 | `/uploadposts/linkedin/resolve-organization` | GET | Resolve any LinkedIn company Page to `{urn, name}` for mentions |
 | `/uploadposts/pinterest/boards` | GET | List Pinterest boards |
-| `/uploadposts/post-analytics/<request_id>` | GET | Per-post metrics of an upload |
+| `/uploadposts/post-analytics/<request_id>` | GET | Per-post metrics of an upload (`?refresh=true` to skip a recent stored reading) |
+| `/uploadposts/post-analytics/<request_id>/daily?platform=` | GET | Day-by-day history of a post (stored readings, no network call) |
+| `/uploadposts/post-analytics/cached?user=` | GET | Bulk re-read of stored post metrics (`sort=-views`, `origin=external\|all`, `date_field=published_at`) |
+| `/uploadposts/insights?user=` | GET | Each post against your other posts at the same age (1h, 24h, 7d, 30d) |
+| `/uploadposts/analytics-status` | GET | Why a number is missing or old: connection, last reading, delay, coverage |
 | `/uploadposts/comments` | GET | List comments of a post, or the replies under one comment |
 | `/uploadposts/dms/send` | POST | Send an Instagram or Bluesky DM (or a sender action) |
 | `/uploadposts/dms/conversations` | GET | List Instagram or Bluesky DM conversations |
@@ -265,7 +269,9 @@ Supported: Instagram, TikTok, LinkedIn, Facebook, X, YouTube, Threads, Pinterest
 
 Telegram returns `followers` (subscribers or members), reactions as `engagement`/`likes` and `boosts_active` (the Bot API has no views). Google Business daily metrics for any range: `GET /api/uploadposts/google-business/performance?user=&location_id=&metrics=&start_date=&end_date=`, search keywords: `/google-business/performance/keywords?start_month=&end_month=`.
 
-Returns: followers, impressions, reach, profile views, time-series data.
+Returns: followers, impressions, reach, profile views, time-series data. Each platform also carries `as_of` (when the network was asked), `next_refresh_at` (do not poll before it), `missing` (metric → reason: `not_supported`, `reauth_required`, `quota`, `platform_delay`, `not_fetched`; never a fake 0), `views_field` and, on TikTok and X, `coverage` (how many posts the totals come from). Add `since=YYYY-MM-DD&until=YYYY-MM-DD&compare=previous` for a `period` block from stored daily snapshots.
+
+For a headline across networks use `views_total` from `GET /api/uploadposts/total-impressions/<profile>`: `total_impressions` is a legacy mix of reach and impressions. X and YouTube posts are only updated when someone reads them; networks publish some numbers 24–72 h late. See https://docs.upload-post.com/guides/why-analytics-numbers-differ.
 
 Per-post metrics of an upload: `GET /api/uploadposts/post-analytics/<request_id>?platform=tiktok`. A TikTok draft (`post_mode=MEDIA_UPLOAD`) has metrics only after the creator publishes it as **public** from the TikTok app; until then `post_metrics_error` says it is still in the inbox. After 30 days without a post Upload-Post stops asking TikTok; read a published one with `GET /api/uploadposts/post-analytics?platform_post_id=<id>&platform=tiktok&user=<profile>`. TikTok rows carry `original_publish_id`, and `post_url` is empty when the account's @username is unknown.
 
