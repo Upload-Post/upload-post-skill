@@ -1,6 +1,6 @@
 ---
 name: upload-post
-description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, Bluesky, Telegram, or Google Business. Supports scheduling, a queue that can fill itself with the best times to post, paid partnership labels, editing/reposting/deleting live posts, analytics, FFmpeg processing, upload history, comments and replies, Instagram and Bluesky DMs, account-wide Instagram AutoDM rules, webhooks with a delivery log, LinkedIn mentions, Telegram chat and bot management, Bluesky reads and drafts, and Google Business posts, reviews, performance and location info."
+description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, Bluesky, Telegram, or Google Business. Supports scheduling, a queue that can fill itself with the best times to post, paid partnership labels, editing/reposting/deleting live posts, analytics, FFmpeg processing, upload history, comments and replies, Instagram and Bluesky DMs, account-wide Instagram AutoDM rules, webhooks with a delivery log, LinkedIn mentions, Telegram chat and bot management, Bluesky reads and drafts, Google Business posts, reviews, performance and location info, and YouTube channel management (playlists, captions, comment inbox and moderation, channel settings, search, live broadcasts and live chat)."
 ---
 
 # Upload-Post API
@@ -72,6 +72,7 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/uploadposts/telegram/*` | GET / POST / PATCH / DELETE | Telegram chat, members, invite links, topics, bot profile and commands |
 | `/uploadposts/bluesky/*` | GET / POST | Bluesky profiles, search, notifications, profile/settings, drafts |
 | `/uploadposts/google-business/*` | GET / PATCH | Google Business posts, reviews, gallery, performance, location info |
+| `/uploadposts/youtube/*` | GET / POST / PATCH / PUT / DELETE | YouTube videos, quota, playlists, captions, comments, channel, search, live |
 
 ## Upload Videos
 
@@ -393,6 +394,22 @@ Management (`user` = profile; the bot needs the matching admin right): `GET|PATC
 - Posts: `GET /uploadposts/google-business/posts?user=&location_id=`, `/posts/get?post_id=`; edit with `/posts/edit`, delete with `/posts/unpublish`.
 - Reviews: `GET /google-business/reviews` (`order_by`), `/reviews/get?review_name=`, `/reviews/batch?location_ids=`; reply `PUT /reviews/reply`.
 - Location: `GET /google-business/location-info`, `PATCH /location-info` with `edit_mode` `legacy` (default) or `strict` (title, address, categories, open status; `dry_run`, `confirm`), plus gallery (`/media`), attributes, Place Actions, menus/services, lodging. `location_id` is optional (default: the location selected for the profile).
+
+## YouTube Management (after publishing)
+
+Upload extras: `youtube_localizations` (translated title/description per language, JSON; needs `defaultLanguage`) and `youtube_brand_partner` (brand channel ID `UC…`). Everything below takes `user` (profile) and lives under `/api/uploadposts/youtube`.
+
+- **Videos**: `GET /youtube/videos?ids=` (or `chart=mostPopular`, `my_rating=like`), `parts`, `include_owner_details`. Thumbnail: `POST /youtube/thumbnail` (`video_id` + file or `thumbnail_url`). Edit metadata with `POST /uploadposts/posts/edit` (`platform: youtube`).
+- **Playlists**: `GET|POST /youtube/playlists`, `PATCH|DELETE /youtube/playlists/<id>`, items `GET|POST /playlists/<id>/items` (`video_id`, `position`, `note`), `PATCH|DELETE /playlists/<id>/items/<item_id>`, image `/playlists/<id>/image`.
+- **Captions**: `GET /youtube/captions?video_id=`, `POST /youtube/captions` (file or `file_url`, `language`, `name`, `is_draft`), `PUT|DELETE /captions/<id>`, `GET /captions/<id>/download?tfmt=srt|vtt…&tlang=`.
+- **Comments inbox**: `GET /youtube/comments?video_id=` or `scope=channel` (`moderation_status=heldForReview|likelySpam`, `order`, `search`), `GET /comments/replies?parent_id=`, `POST /youtube/comments` (`text` + `parent_id` to reply or `video_id`; optional `idempotency_key`), `PATCH|DELETE /comments/<id>`, `POST /comments/moderate` (`comment_ids` up to 50, `status` `published`/`heldForReview`/`rejected`, `ban_author`).
+- **Channel**: `GET|PATCH /youtube/channel` (`description`, `keywords`, `country`, `default_language`, `unsubscribed_trailer`, `localizations`; settings and translations in separate calls; the channel name cannot be changed), `GET /channel/lookup?for_handle=@…`, banner, sections, watermark.
+- **Search and catalogs**: `GET /youtube/search` (`q`, `for_mine`, `channel_id`, `type`, `order`…), `/youtube/categories`, `/languages`, `/regions`. Subscriptions, ratings, activities: `/youtube/subscriptions`, `/videos/<id>/rate`, `/youtube/activities`.
+- **Live**: `GET|POST /youtube/live/broadcasts` (`title`, `scheduled_start_time`, `privacy_status`, `create_stream`), `PATCH|DELETE /live/broadcasts/<id>`, `/bind`, `/transition` (`testing`, `live`, `complete`), `/cuepoint`; streams `/live/streams` (the stream key is a secret: never print it). Chat: `GET|POST /youtube/live/chat` (`broadcast_id` or `live_chat_id`; messages and polls only in your own broadcasts), `/live/chat/polls/<id>/close`, `/live/moderators`, `/live/bans`, `/live/super-chats`.
+
+**Daily allowance.** These calls share a daily budget per Upload-Post account in YouTube quota units, reset at midnight Pacific: **2,000 units on paid plans, 200 on free** (searches: 5 and 1 calls). Check it with `GET /api/uploadposts/youtube/quota` before a batch. Reads cost 1 unit (chat 5 per page); playlist and comment writes ~50; captions are the expensive part (list 50, upload 400, replace 450, download 200), so the free plan cannot upload or download captions (`403 youtube_plan_daily_limit_too_low`); moderators 50-200. Uploads have their own allowance and are never limited by this one.
+
+**Rules.** Lists return `items`, `next_page_token`, `page_info`. On updates `""` means no change; remove with `null` or `*_remove`. Destructive or hard-to-undo calls (delete playlist/item/caption/comment/section/broadcast/stream, reject comments, ban, remove a moderator, replace a watermark or image, go `live` or `complete`) need `confirm: true`, otherwise `400 confirmation_required` and nothing reaches YouTube: ask the user first. `502 youtube_write_outcome_unknown` means the write may have happened: read it back before retrying. Captions, moderators and bans need the full YouTube permission (`403 youtube_insufficient_scope`: reconnect the channel). Reference: https://docs.upload-post.com/api/youtube-videos
 
 ## Webhooks
 
