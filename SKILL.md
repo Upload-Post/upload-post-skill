@@ -1,6 +1,6 @@
 ---
 name: upload-post
-description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, Bluesky, Telegram, or Google Business. Supports scheduling, a queue that can fill itself with the best times to post, paid partnership labels, editing/reposting/deleting live posts, analytics, FFmpeg processing, upload history, comments and replies, Instagram and Bluesky DMs, account-wide Instagram AutoDM rules, webhooks with a delivery log, LinkedIn mentions, Telegram chat and bot management, Bluesky reads and drafts, Google Business posts, reviews, performance and location info, and YouTube channel management (playlists, captions, comment inbox and moderation, channel settings, search, live broadcasts and live chat)."
+description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, Bluesky, Telegram, or Google Business. Supports scheduling, a queue that can fill itself with the best times to post, paid partnership labels, editing/reposting/deleting live posts, analytics, FFmpeg processing, upload history, comments and replies, Instagram and Bluesky DMs, account-wide Instagram AutoDM rules, webhooks with a delivery log, LinkedIn mentions, Telegram chat and bot management, Bluesky reads and drafts, Google Business posts, reviews, performance and location info, and YouTube channel management (playlists, captions, comment inbox and moderation, channel settings, search, live broadcasts and live chat), Telegram incoming messages, payments and Business, and team roles with post approvals."
 ---
 
 # Upload-Post API
@@ -10,7 +10,9 @@ Post content to multiple social media platforms with a single API call.
 ## Documentation
 
 - Full API docs: https://docs.upload-post.com
-- LLM-friendly: https://docs.upload-post.com/llm.txt
+- LLM-friendly: https://docs.upload-post.com/llms.txt (index) and https://docs.upload-post.com/llms-full.txt (everything)
+- OpenAPI spec: https://docs.upload-post.com/openapi.json
+- Error codes: https://docs.upload-post.com/api/error-codes
 
 ## Setup
 
@@ -43,7 +45,9 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/uploadposts/schedule` | GET | List scheduled posts |
 | `/uploadposts/schedule/<job_id>` | DELETE | Cancel scheduled post |
 | `/uploadposts/schedule/<job_id>` | PATCH | Edit scheduled post |
-| `/uploadposts/me` | GET | Validate API key |
+| `/uploadposts/me` | GET | Validate API key; plan and `analyze_shorts` (`limit`, `used`, `remaining`, `resets_at`) |
+| `/uploadposts/users` | GET / POST / DELETE | List, create (`{"username": ...}`; `409` "Username already in use") or delete profiles |
+| `/uploadposts/analyze-shorts` | POST | AI title and captions for a short video (counts against `analyze_shorts`) |
 | `/analytics/<profile>` | GET | Get analytics |
 | `/uploadposts/facebook/pages` | GET | List Facebook pages |
 | `/uploadposts/linkedin/pages` | GET | List LinkedIn pages |
@@ -59,6 +63,9 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/uploadposts/webhooks/deliveries` | GET | Webhook delivery log (7 days) |
 | `/uploadposts/webhooks/deliveries/<delivery_id>` | GET | One delivery, with its payload |
 | `/uploadposts/webhooks/deliveries/<delivery_id>/redeliver` | POST | Send a delivery again |
+| `/uploadposts/webhooks/subscriptions` | GET / POST | Extra webhook destinations with their own events (not generally available yet) |
+| `/uploadposts/teams/roles` · `/teams/members` · `/teams/audit` | GET | Team roles, members and activity log |
+| `/uploadposts/approvals` | GET | Posts waiting for approval (not generally available yet) |
 | `/uploadposts/reddit/detailed-posts` | GET | Get Reddit posts with media |
 | `/uploadposts/ffmpeg/jobs/upload` | POST | Start an FFmpeg job |
 | `/uploadposts/ffmpeg/jobs/<job_id>` | GET | FFmpeg job status |
@@ -229,7 +236,7 @@ curl "https://api.upload-post.com/api/uploadposts/best-times?profile_username=pr
 
 - Platforms: TikTok, Instagram, Facebook, YouTube, LinkedIn, Threads, Pinterest, Bluesky. Optional `top` (1-24, default 5), `refresh=true` (only if the cached answer is 24 h old; YouTube 7 days), `page_urn` (LinkedIn Page), `facebook_page_id`.
 - Answer: `best_times` (best first, in `timezone`), `by_hour`, `by_day`, `source` (`audience_activity`, `account_posts`, `upload_post_history`, `none`), `confidence`, `warnings`.
-- Let the queue use them: `POST /api/uploadposts/queue/settings` with `{"profile_username": "profile_name", "timezone": "Europe/Madrid", "slots": "auto", "auto_slots_count": 3, "auto_platforms": ["instagram", "tiktok"]}`. Then upload with `add_to_queue=true`. Posts already scheduled do not move; a `slots` array switches back to fixed slots. `GET /queue/settings` shows `slots_mode`, `auto_slots`, `effective_slots`; `GET /queue/preview?count=` and `GET /queue/next-slot` show what is coming.
+- Let the queue use them: `POST /api/uploadposts/queue/settings` with `{"profile_username": "profile_name", "timezone": "Europe/Madrid", "slots": "auto", "auto_slots_count": 3, "auto_platforms": ["instagram", "tiktok"]}`. Then upload with `add_to_queue=true`. Posts already scheduled do not move; a `slots` array switches back to fixed slots. `GET /queue/settings` shows `slots_mode`, `auto_slots`, `effective_slots`, and `configured: false` when the profile never saved a queue (the values are then defaults); `GET /queue/preview?count=` and `GET /queue/next-slot` show what is coming.
 
 ## Edit, Repost and Delete Live Posts
 
@@ -382,6 +389,11 @@ Publishing options (all optional, Bot API names with a `telegram_` prefix, JSON 
 
 Management (`user` = profile; the bot needs the matching admin right): `GET|PATCH /uploadposts/telegram/chat-info`, `GET /telegram/boosts`, `GET|POST /telegram/members` (`action`: `ban`, `unban`, `restrict`, `promote`, `demote`, `set_title`), `POST|PATCH|DELETE /telegram/invite-links`, `POST /telegram/join-requests`, `POST|PATCH|DELETE /telegram/topics`, `GET|PATCH /telegram/bot-profile`, `GET|POST|DELETE /telegram/bot-commands`, `GET /telegram/stars`. Destructive calls need `"confirm": true`. DMs: `POST /uploadposts/dms/send` with `platform=telegram` and the person's numeric `recipient_id` (only people who started the bot).
 
+- **Incoming messages (opt-in per bot)**: `POST /uploadposts/telegram/updates` with `{"user": "profile_name", "enabled": true}` makes the bot send its updates to Upload-Post (`GET /telegram/updates?user=` shows the state and webhook health). Another service's webhook is only replaced with `replace_existing_webhook: true` (`409 telegram_webhook_in_use` otherwise). Optional `forward_url` (raw updates, signed with your webhook secret), `business_chats`, `auto_answer_callbacks`, `extra_updates`. Then private messages arrive as `dm_received` and every update, raw (button presses, inline and join queries, payments...), as `telegram_update` (both opt-in: list them in `webhook_events`); read chats with `GET /uploadposts/dms/conversations?platform=telegram&user=`, download attachments with `GET /uploadposts/dms/media`, and answer buttons, inline, join, shipping or pre-checkout queries with `POST /telegram/answer` (`410 telegram_query_expired` when Telegram's time is up). `enabled: false` removes the webhook and the stored messages.
+- **Stars and payments**: `GET /telegram/stars`, `/stars/transactions`; `POST /telegram/invoices` and `/invoice-links`, `/stars/refund`, `/stars/subscription`; automatic pre-checkout rules `GET|PUT /telegram/payments/settings` (need incoming updates on), failures in `/payments/unanswered`; gifts `GET /telegram/gifts`, `/gifts/owned`, `/gifts/unique`. `POST /telegram/gifts` and `/gifts/premium` spend the bot's Stars: confirm with the user first.
+- **Telegram Business** (a Business account connected to the bot): `GET /telegram/business-connections`, `GET|PATCH /business-profile`, `POST|PATCH|DELETE /business-stories` (+ `/repost`), `GET|POST /business-gifts`, `GET /business-stars`, `POST /business-stars/transfer`.
+- **Paid broadcast**: `telegram_allow_paid_broadcast=true` lets a post go above 30 messages per second for 0.1 Stars per message from the bot's balance. Telegram only allows it for bots with at least 100,000 Stars and 100,000 monthly active users; otherwise the Telegram result fails with `telegram_paid_broadcast_not_allowed`: send it again without the option.
+
 ## Bluesky Reads and Drafts
 
 - Publishing extras: `bluesky_tags` (up to 8 hidden hashtags), `bluesky_created_at` (import older posts), `bluesky_thread_overflow=true` (long text continues as replies), `bluesky_gif_as_video`, video `bluesky_captions` (WebVTT) and `bluesky_video_presentation=gif`.
@@ -420,13 +432,30 @@ Configure with `POST /api/uploadposts/users/notifications`:
  "webhook_events": {"upload_completed": true, "dm_received": true, "comment_received": true}}
 ```
 
-Events: `upload_completed`, `social_account_connected`, `social_account_disconnected`, `social_account_reauth_required`, `dm_received` (Instagram; Bluesky checked every 5 minutes), `comment_received`. Signed with HMAC-SHA256 (`X-Upload-Post-Signature`).
+Events: `upload_completed`, `social_account_connected`, `social_account_disconnected`, `social_account_reauth_required`, `dm_received` (Instagram, Telegram; Bluesky checked every 5 minutes), `comment_received`, `telegram_update`, Google Business `review_received`, `review_updated`, `customer_media_received`, `listing_google_update`, `listing_duplicate`, `listing_control_changed`, `post_analytics_updated`, `youtube_video_published`, `youtube_video_updated`, and the approval events `post_approval_requested`, `post_approved`, `post_rejected`, `post_approval_expired`. Omitted or empty `webhook_events` = every event except the opt-in ones (`dm_received`, `comment_received`, `telegram_update`, the Google Business events, `post_analytics_updated`, YouTube and approval events), which only arrive if listed. Signed with HMAC-SHA256: `X-Upload-Post-Signature: sha256=HMAC(webhook_secret, "{timestamp}.{raw_body}")` with `X-Upload-Post-Timestamp`; the secret is `notifications.webhook_secret` from `GET /uploadposts/users/notifications`.
 
 - **At least once.** A timeout (15 s total), connection error, `5xx`, `408` or `429` is retried: 6 attempts over ~8.5 h (+1 min, +5 min, +30 min, +2 h, +6 h), same body and same `X-Upload-Post-Delivery` id (deduplicate by it); `X-Upload-Post-Attempt` is 1-6. Other `4xx` are final; `3xx` counts as delivered (redirects are not followed). No ordering guarantee.
 - After 5 consecutive failures the webhook pauses 30 min; events during the pause are queued, not lost. Pending after 24 h = `failed`.
 - `GET /api/uploadposts/webhooks/deliveries`: filters `event`, `status` (`pending`, `delivered`, `failed`, `cancelled`), `request_id`, `job_id`, `profile_username`; `limit` 1-100 (20), `page` 1-50, `include_payload=true`. Kept 7 days.
 - `GET /api/uploadposts/webhooks/deliveries/<delivery_id>`: one delivery with `attempts` and `payload`.
 - `POST /api/uploadposts/webhooks/deliveries/<delivery_id>/redeliver`: new delivery now, same body, current URL, header `X-Upload-Post-Redelivery-Of`. `404` unknown/expired, `409` (`webhook_removed`, `event_unsubscribed`, `blocked_url`).
+
+**Webhook subscriptions (not generally available yet: every route answers `503 webhook_subscriptions_disabled` until it is switched on).** Extra destinations besides the account webhook, each with its own `events` and optional `profile_username` (what the n8n trigger node uses):
+
+- `POST /api/uploadposts/webhooks/subscriptions` `{"url": "https://...", "events": ["upload_completed"], "profile_username": "profile_name", "source": "my-app", "name": "..."}`: `201 created: true`; the same `url` + `events` + `profile_username` is idempotent (`200 created: false`, `reactivated: true` if it was disabled). Public `https` URL only (`400 invalid_url`), unknown events `400 invalid_events` (+ `allowed_events`), at most 10 active per account (`409 subscription_limit_reached`), team members cannot create them (`403 team_member_forbidden`).
+- `GET .../subscriptions?status=active|disabled&source=&url=`, `GET|DELETE .../subscriptions/<subscription_id>` (`404 not_found`), `POST .../subscriptions/<subscription_id>/test` (optional `{"event": ...}`, one of its events; `409 subscription_disabled`). A subscription is disabled on its own after repeated failures (`disabled_reason`: `endpoint_gone`, `failing_too_long`, `blocked_url`, `profile_removed`); creating it again reactivates it.
+- Deliveries: same body and signature as the account webhook plus the header `X-Upload-Post-Subscription: <subscription_id>`; history in `GET /webhooks/deliveries?subscription_id=`.
+
+## Team Roles and Post Approvals
+
+Team members act on the owner's account with the header `X-Act-As-User: <owner email>`. Invitations, role changes and removals are done by the owner in the dashboard (Team page), not through the API. Roles are not generally available yet: while `GET /teams/roles` says `enabled: false`, every member works as an admin with every profile.
+
+- `GET /api/uploadposts/teams/roles`: `enabled`, `approvals_enabled`, the roles (`owner`, `admin`, `editor`, `contributor`, `viewer`) and their permissions, plus `your_role` and `your_profiles`. `GET /teams/members` (each with `role` and `profiles`, `null` = all), `GET /teams/shared-with-me`, `GET /teams/audit` (owner and unrestricted admins; filters `actor`, `action`, `profile_username`, `target_id`, `since`, `until`, `limit` 1-200, `cursor`).
+- With roles on, an **editor**'s upload answers `202` with `pending_approval: true`, `approval_id`, `approval_status: "pending_approval"` and `job_id: null`; a **contributor**'s is saved as `"draft"`; a **viewer** only reads. Nothing is published or scheduled until a reviewer (owner or admin) approves. While approvals are off, editors and contributors cannot post (`403 team_approvals_disabled`).
+- **Approval queue (not generally available yet: `503 post_approvals_disabled`)**: `GET /api/uploadposts/approvals` (`status`, `profile_username`, `author`, `limit`, `before`; `count_only=true` returns only `counts`), `GET|PATCH|DELETE /approvals/<approval_id>` (edit bumps `version`; delete withdraws), `POST /approvals/<approval_id>/approve` with the reviewed `{"version": N}` (**required**: `400 version_required`, `409 approval_version_changed` with `current_version` if someone edited it) plus optional `comment`, `scheduled_date` + `timezone` or `publish_now: true`; `POST /approvals/<approval_id>/reject` with `{"comment": "..."}` (required: `400 comment_required`). Closed items answer `409 approval_closed`.
+- **End-client approval** (with approvals on): `POST /uploadposts/users/generate-jwt` with `client_approval: true` lets the client of that profile approve or reject its pending posts from the connect page (`GET /approvals/client`, `POST /approvals/client/<approval_id>/approve` with `version`, `/reject` with `comment`; Bearer = that profile JWT).
+- Members limited to some profiles only see and post to those (`403 team_profile_forbidden`); on Facebook and LinkedIn they can only use the Page pinned to their profile (`403 team_page_not_pinned` until the owner pins one, `403 team_page_forbidden` for another Page). A role without the permission gets `403 team_role_forbidden`.
+- Approval webhook events (opt-in): `post_approval_requested`, `post_approved`, `post_rejected`, `post_approval_expired`, body `{event, user_email, profile_username, approval: {...}, created_at}`.
 
 ## Platform-Specific Parameters
 
@@ -443,8 +472,11 @@ See [references/requirements.md](references/requirements.md) for format specs pe
 | 400 | Bad request / missing params |
 | 401 | Invalid API key |
 | 403 `TEAM_SEAT_SUSPENDED` | Team member acting with `X-Act-As-User` on an account whose plan no longer covers that seat. Access returns when the owner upgrades or frees a seat |
+| 403 `team_role_forbidden` / `team_profile_forbidden` / `team_page_not_pinned` / `team_page_forbidden` | Team member whose role, profiles or pinned Page do not allow that request (see Team Roles and Post Approvals) |
 | 404 | Resource not found |
+| 409 | Conflict, e.g. creating a profile whose username already exists ("Username already in use") |
 | 429 | Rate limit / quota exceeded |
+| 503 `webhook_subscriptions_disabled` / `post_approvals_disabled` | Feature not generally available yet |
 | 500 | Server error |
 
 ## Notes
