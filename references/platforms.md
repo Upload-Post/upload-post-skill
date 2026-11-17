@@ -140,6 +140,7 @@ Limits: 4 images per post (10 with `bluesky_gallery=true`; extra images are drop
 | `telegram_media_urls` | String | Up to 9 extra URLs: one album |
 | `telegram_caption_overflow` | String | `split` sends a caption over 1,024 characters in two parts |
 | `telegram_paid_star_count` | Integer | Paid media (1-25000 Stars) |
+| `telegram_allow_paid_broadcast` | Boolean | Go above 30 messages/s for 0.1 Stars per message from the bot's balance. Only bots with 100,000 Stars and 100,000 monthly active users; otherwise the result fails with `telegram_paid_broadcast_not_allowed` |
 
 Limits: text 4,096, captions 1,024; files 10 MB photos / 50 MB others. Full list: https://docs.upload-post.com/api/telegram
 
