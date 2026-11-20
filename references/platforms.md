@@ -157,6 +157,21 @@ Limits: text 4,096, captions 1,024; files 10 MB photos / 50 MB others. Full list
 | `gbp_recurrence` | String | EVENT/OFFER: `DAILY`, `WEEKLY`, `MONTHLY` (+ `gbp_recurrence_days`, `_day_of_month`, `_week_occurrence`, `_end`) |
 | `gbp_scheduled_time` | String | Google's own scheduling (RFC 3339 with time zone) |
 
+## WhatsApp (messaging only)
+
+WhatsApp is not a publishing destination: it never goes in `platform[]` of `/upload`, `/upload_photos` or `/upload_text`. A connected WhatsApp Business number is used with the DM endpoints and `platform: "whatsapp"`.
+
+| Endpoint | Use |
+|----------|-----|
+| `POST /api/uploadposts/dms/send` | Text, media, reply, location, contacts, buttons/list/CTA, reaction, `mark_read`; an approved `template` outside the 24-hour window |
+| `GET /api/uploadposts/dms/conversations` | Chats since the number was connected (90 days), with `window_open_until` |
+| `GET / POST / DELETE /api/uploadposts/dms/templates` | List, create (review by Meta, `PENDING` first) and delete message templates |
+| `GET / POST /api/uploadposts/dms/media` | Download a received file by `media_id` / upload a file to send |
+
+Connect: dashboard or white-label connect page, Meta's Embedded Signup. Webhook: `dm_received` with `platform: "whatsapp"`. Full reference: https://docs.upload-post.com/api/whatsapp-dms
+
+Facebook Messenger (`platform: "facebook"` on the same endpoints) is in limited rollout, enabled on request (`403 messenger_not_enabled` otherwise): https://docs.upload-post.com/api/messenger-dms
+
 ## Common Parameters (All Platforms)
 
 | Parameter | Type | Description |

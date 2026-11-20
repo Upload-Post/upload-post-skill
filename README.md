@@ -28,7 +28,7 @@ A skill for AI agents (Claude Code, Clawdbot, etc.) to upload content to social 
 - Analytics retrieval (including TikTok drafts once published)
 - Upload history tracking
 - Comments and replies (Instagram, Facebook, LinkedIn, TikTok, Threads, YouTube)
-- Instagram, Bluesky and Telegram direct messages
+- Instagram, Bluesky, Telegram and WhatsApp direct messages (WhatsApp Business: templates outside the 24-hour window, received media)
 - Account-wide Instagram AutoDM rules (every post, story replies, story mentions, keyword DMs)
 - Webhooks with automatic retries, a 7-day delivery log and redelivery; extra webhook subscriptions per integration (not generally available yet)
 - LinkedIn mentions and company Page lookup

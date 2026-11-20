@@ -1,6 +1,6 @@
 ---
 name: upload-post
-description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, Bluesky, Telegram, or Google Business. Supports scheduling, a queue that can fill itself with the best times to post, paid partnership labels, editing/reposting/deleting live posts, analytics, FFmpeg processing, upload history, comments and replies, Instagram and Bluesky DMs, account-wide Instagram AutoDM rules, webhooks with a delivery log, LinkedIn mentions, Telegram chat and bot management, Bluesky reads and drafts, Google Business posts, reviews, performance and location info, and YouTube channel management (playlists, captions, comment inbox and moderation, channel settings, search, live broadcasts and live chat), Telegram incoming messages, payments and Business, and team roles with post approvals."
+description: "Upload content to social media platforms via Upload-Post API. Use when posting videos, photos, text, or documents to TikTok, Instagram, YouTube, LinkedIn, Facebook, X (Twitter), Threads, Pinterest, Reddit, Bluesky, Telegram, or Google Business. Supports scheduling, a queue that can fill itself with the best times to post, paid partnership labels, editing/reposting/deleting live posts, analytics, FFmpeg processing, upload history, comments and replies, Instagram, Bluesky and WhatsApp DMs (WhatsApp Business messaging with templates), account-wide Instagram AutoDM rules, webhooks with a delivery log, LinkedIn mentions, Telegram chat and bot management, Bluesky reads and drafts, Google Business posts, reviews, performance and location info, and YouTube channel management (playlists, captions, comment inbox and moderation, channel settings, search, live broadcasts and live chat), Telegram incoming messages, payments and Business, and team roles with post approvals."
 ---
 
 # Upload-Post API
@@ -55,8 +55,10 @@ The `user` parameter in all endpoints refers to your **profile name** (not usern
 | `/uploadposts/pinterest/boards` | GET | List Pinterest boards |
 | `/uploadposts/post-analytics/<request_id>` | GET | Per-post metrics of an upload |
 | `/uploadposts/comments` | GET | List comments of a post, or the replies under one comment |
-| `/uploadposts/dms/send` | POST | Send an Instagram or Bluesky DM (or a sender action) |
-| `/uploadposts/dms/conversations` | GET | List Instagram or Bluesky DM conversations |
+| `/uploadposts/dms/send` | POST | Send an Instagram, Bluesky or WhatsApp DM (or a sender action) |
+| `/uploadposts/dms/conversations` | GET | List Instagram, Bluesky or WhatsApp DM conversations |
+| `/uploadposts/dms/templates` | GET / POST / DELETE | WhatsApp message templates (list, create, delete) |
+| `/uploadposts/dms/media` | GET / POST | WhatsApp media: download a received file (`media_id`) / upload one to send |
 | `/uploadposts/autodms/rules` | GET / POST | List / create account-wide Instagram AutoDM rules |
 | `/uploadposts/autodms/rules/pause` · `resume` · `delete` | POST | Manage a rule (`{"rule_id": ...}`) |
 | `/uploadposts/users/notifications` | GET / POST | Webhook URL and events |
@@ -197,6 +199,8 @@ Parameters:
 | Bluesky | ✓ | ✓ | ✓ | - |
 | Telegram | ✓ | ✓ | ✓ | ✓ |
 | Google Business | ✓ | ✓ | ✓ | - |
+
+**Messaging only (not an `/upload` destination):** WhatsApp, through the DM endpoints (`platform=whatsapp`); see [Direct Messages](#direct-messages-instagram-bluesky-whatsapp). Facebook Messenger (`platform=facebook`) is in limited rollout, enabled on request (otherwise `403 messenger_not_enabled`).
 
 ## Upload History
 
@@ -341,7 +345,7 @@ curl "https://api.upload-post.com/api/uploadposts/comments?platform=instagram&us
 - Errors: `400 invalid_comment_id`, `404 comment_not_found` (Instagram/Facebook), `404 linkedin_comment_not_found`, `403 linkedin_personal_not_supported` (personal profile), `403 linkedin_page_access_denied` (no longer Page admin: reconnect). A comment without replies is `200` with `comments: []`.
 - Reply with `POST /api/uploadposts/comments/create` (`platform`, `user`, `comment_id`, `message`, plus `post_id` where needed).
 
-## Direct Messages (Instagram, Bluesky)
+## Direct Messages (Instagram, Bluesky, WhatsApp)
 
 ```bash
 curl -X POST "https://api.upload-post.com/api/uploadposts/dms/send" \
@@ -357,6 +361,27 @@ curl "https://api.upload-post.com/api/uploadposts/dms/conversations?platform=blu
 - Bluesky: needs an app password created with **"Allow access to your direct messages"** (Bluesky > Settings > Privacy and security > App passwords), else `403 bluesky_dm_scope_missing`: reconnect Bluesky with a new one. `recipient_id` is a handle, DID or profile link, or pass `conversation_id` (also for groups). Text up to 1,000 characters; links, `#hashtags` and up to 10 `@mentions` become clickable. Share a post with `attachments: {"type": "post", "url": "https://bsky.app/profile/<handle>/post/<id>"}` (no images or files). `reply_to`, and `sender_action`: `mark_seen`/`mark_read`, `react`/`unreact` (`message_id` + a single emoji in `reaction`), `delete` (for you), `accept`, `mute`, `unmute`, `leave`. Sender actions spend no DM quota.
 - Bluesky conversations: `participant_id` (handle/DID), `conversation_id` + `messages_cursor` (older messages), `status=request|accepted`, `read_state=unread`. At most 25 per page; slow pages mark the rest `messages_truncated: true`. Messages carry `direction` (`in`/`out`), `reactions`, `reply_to`.
 - Bluesky errors: `403 bluesky_recipient_unavailable` (`reason`; no quota spent), `404 bluesky_recipient_not_found` / `bluesky_conversation_not_found`, `400 bluesky_message_too_long`, `401 bluesky_reauth_required`, `429 bluesky_rate_limited`, `503 bluesky_edge_rate_limited` (`Retry-After`). **`504 bluesky_send_unconfirmed` (`retryable: false`): the DM may have gone out, read the conversation before sending again and never retry it automatically.**
+
+**WhatsApp** (`platform: "whatsapp"`): your own WhatsApp Business number, connected from the dashboard or the white-label connect page with Meta's Embedded Signup ("Continue with Facebook"; no API credential). Messaging only, never in `/upload`. Meta bills conversations to the customer's WhatsApp Business account.
+
+```bash
+curl -X POST "https://api.upload-post.com/api/uploadposts/dms/send" \
+  -H "Authorization: Apikey YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"platform": "whatsapp", "user": "profile_name", "recipient_id": "34600111222", "message": "Your order has shipped"}'
+
+# Outside the 24-hour window: an approved template
+curl -X POST "https://api.upload-post.com/api/uploadposts/dms/send" \
+  -H "Authorization: Apikey YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"platform": "whatsapp", "user": "profile_name", "recipient_id": "34600111222", "template": {"name": "order_update", "language": "en_US", "components": [{"type": "body", "parameters": [{"type": "text", "text": "Jane"}]}]}}'
+```
+
+- `recipient_id` is the phone number in international format (7-15 digits; `+` and spaces accepted). Free text (up to 4096 characters), `attachments` (up to 10 `{type, url}` or `{type, media_id}`: `image`, `video`, `audio`, `document`, `sticker`), `reply_to` (`wamid`), `location`, `contacts`, interactive `buttons` (3) / `list` / `cta_url` with `header`/`footer`, `reaction` (`{message_id, emoji}`, `""` removes it) and `sender_action` `mark_read`/`typing_on` (with `message_id`) work only within **24 hours** of the person's last message.
+- Outside the window only an approved `template` goes out (`400 whatsapp_template_required`, then `dm_window_blocked` for free text until they write again). Templates: `GET /dms/templates?platform=whatsapp&user=`, `POST` `{platform, user, name, category (UTILITY|MARKETING|AUTHENTICATION), language, body + examples | components}` (starts `PENDING`), `DELETE ?name=`.
+- Conversations (`GET /dms/conversations?platform=whatsapp&user=`): only messages since the number was connected, kept 90 days; each chat has `window_open_until`. Received media come as `media_id`: download with `GET /dms/media?platform=whatsapp&user=&media_id=`; upload a file to send with `POST /dms/media` (multipart `file`).
+- Errors: `400 whatsapp_not_connected`, `whatsapp_invalid_recipient`, `whatsapp_undeliverable`, `whatsapp_invalid_request`, `whatsapp_api_error`; `401 whatsapp_reauth_required` (reconnect); `429` daily DM limit (shared with Instagram), `dm_rate_limited`, `dm_send_in_progress`; `502 whatsapp_unreachable`. Docs: https://docs.upload-post.com/api/whatsapp-dms
+- **Messenger** (`platform: "facebook"`) uses the same endpoints but is in limited rollout (on request): accounts without access get `403 messenger_not_enabled`; no plan, setting or reconnect turns it on.
 
 ## AutoDM: Account-Wide Instagram Rules
 
@@ -432,7 +457,7 @@ Configure with `POST /api/uploadposts/users/notifications`:
  "webhook_events": {"upload_completed": true, "dm_received": true, "comment_received": true}}
 ```
 
-Events: `upload_completed`, `social_account_connected`, `social_account_disconnected`, `social_account_reauth_required`, `dm_received` (Instagram, Telegram; Bluesky checked every 5 minutes), `comment_received`, `telegram_update`, Google Business `review_received`, `review_updated`, `customer_media_received`, `listing_google_update`, `listing_duplicate`, `listing_control_changed`, `post_analytics_updated`, `youtube_video_published`, `youtube_video_updated`, and the approval events `post_approval_requested`, `post_approved`, `post_rejected`, `post_approval_expired`. Omitted or empty `webhook_events` = every event except the opt-in ones (`dm_received`, `comment_received`, `telegram_update`, the Google Business events, `post_analytics_updated`, YouTube and approval events), which only arrive if listed. Signed with HMAC-SHA256: `X-Upload-Post-Signature: sha256=HMAC(webhook_secret, "{timestamp}.{raw_body}")` with `X-Upload-Post-Timestamp`; the secret is `notifications.webhook_secret` from `GET /uploadposts/users/notifications`.
+Events: `upload_completed`, `social_account_connected`, `social_account_disconnected`, `social_account_reauth_required`, `dm_received` (Instagram, WhatsApp, Telegram; Bluesky checked every 5 minutes), `comment_received`, `telegram_update`, Google Business `review_received`, `review_updated`, `customer_media_received`, `listing_google_update`, `listing_duplicate`, `listing_control_changed`, `post_analytics_updated`, `youtube_video_published`, `youtube_video_updated`, and the approval events `post_approval_requested`, `post_approved`, `post_rejected`, `post_approval_expired`. Omitted or empty `webhook_events` = every event except the opt-in ones (`dm_received`, `comment_received`, `telegram_update`, the Google Business events, `post_analytics_updated`, YouTube and approval events), which only arrive if listed. Signed with HMAC-SHA256: `X-Upload-Post-Signature: sha256=HMAC(webhook_secret, "{timestamp}.{raw_body}")` with `X-Upload-Post-Timestamp`; the secret is `notifications.webhook_secret` from `GET /uploadposts/users/notifications`.
 
 - **At least once.** A timeout (15 s total), connection error, `5xx`, `408` or `429` is retried: 6 attempts over ~8.5 h (+1 min, +5 min, +30 min, +2 h, +6 h), same body and same `X-Upload-Post-Delivery` id (deduplicate by it); `X-Upload-Post-Attempt` is 1-6. Other `4xx` are final; `3xx` counts as delivered (redirects are not followed). No ordering guarantee.
 - After 5 consecutive failures the webhook pauses 30 min; events during the pause are queued, not lost. Pending after 24 h = `failed`.
